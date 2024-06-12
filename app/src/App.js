@@ -18,58 +18,64 @@ function App() {
   useEffect(() => {
     async function getAccounts() {
       const accounts = await provider.send('eth_requestAccounts', []);
-
       setAccount(accounts[0]);
       setSigner(provider.getSigner());
     }
 
     getAccounts();
-  }, [account]);
+  }, []);
+
+  useEffect(() => {
+    const savedEscrows = JSON.parse(localStorage.getItem('escrows')) || [];
+    setEscrows(savedEscrows);
+  }, []);
 
   async function newContract() {
     const beneficiary = document.getElementById('beneficiary').value;
-    const arbiter = document.getElementById('arbiter').value;
-    const value = ethers.BigNumber.from(document.getElementById('wei').value);
-    const escrowContract = await deploy(signer, arbiter, beneficiary, value);
-
+    const arbiterOne = document.getElementById('arbiterOne').value;
+    const arbiterTwo = document.getElementById('arbiterTwo').value;
+    const value = ethers.utils.parseUnits(document.getElementById('eth').value);
+    const escrowContract = await deploy(signer, arbiterOne, arbiterTwo, beneficiary, value);
 
     const escrow = {
       address: escrowContract.address,
-      arbiter,
+      arbiterOne,
+      arbiterTwo,
       beneficiary,
       value: value.toString(),
       handleApprove: async () => {
         escrowContract.on('Approved', () => {
-          document.getElementById(escrowContract.address).className =
-            'complete';
-          document.getElementById(escrowContract.address).innerText =
-            "✓ It's been approved!";
+          document.getElementById(escrowContract.address).className = 'complete';
+          document.getElementById(escrowContract.address).innerText = "✓ It's been approved!";
         });
 
         await approve(escrowContract, signer);
       },
     };
 
-    setEscrows([...escrows, escrow]);
+    const updatedEscrows = [...escrows, escrow];
+    setEscrows(updatedEscrows);
+    localStorage.setItem('escrows', JSON.stringify(updatedEscrows));
   }
 
   return (
-    <>
+    <div className="app-container">
       <div className="contract">
-        <h1> New Contract </h1>
+        <h1>New Contract</h1>
         <label>
-          Arbiter Address
-          <input type="text" id="arbiter" />
+          Arbiter Addresses (2/2 multisig)
+          <input type="text" id="arbiterOne" placeholder="Arbiter 1 Address" />
+          <input type="text" id="arbiterTwo" placeholder="Arbiter 2 Address" />
         </label>
 
         <label>
           Beneficiary Address
-          <input type="text" id="beneficiary" />
+          <input type="text" id="beneficiary" placeholder="Beneficiary Address" />
         </label>
 
         <label>
-          Deposit Amount (in Wei)
-          <input type="text" id="wei" />
+          Deposit Amount (in ETH)
+          <input type="text" id="eth" placeholder="0.0" />
         </label>
 
         <div
@@ -77,7 +83,6 @@ function App() {
           id="deploy"
           onClick={(e) => {
             e.preventDefault();
-
             newContract();
           }}
         >
@@ -86,15 +91,22 @@ function App() {
       </div>
 
       <div className="existing-contracts">
-        <h1> Existing Contracts </h1>
+        <h1>Existing Contracts</h1>
 
         <div id="container">
           {escrows.map((escrow) => {
-            return <Escrow key={escrow.address} {...escrow} />;
+            return (
+              <div className="escrow-container" key={escrow.address}>
+                <Escrow {...escrow} />
+                <a href={`https://etherscan.io/address/${escrow.address}`} target="_blank" rel="noopener noreferrer">
+                  View on Etherscan
+                </a>
+              </div>
+            );
           })}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
